@@ -10,7 +10,7 @@ Sổ từ vựng cá nhân bằng Next.js 16, TypeScript, Tailwind CSS, shadcn/u
 
 ## Chạy ứng dụng
 
-1. Tạo dự án Supabase. Trong **SQL Editor**, chạy nội dung [migration](supabase/migrations/0001_initial.sql). Các bảng dùng Row Level Security; mỗi tài khoản chỉ truy cập bản ghi của mình.
+1. Tạo dự án Supabase và áp dụng [migration](supabase/migrations/0001_initial.sql) **một lần**. Nếu đã kết nối Supabase GitHub Integration, để integration tự chạy migration; không chạy lại file đó trong SQL Editor. Nếu cài thủ công qua SQL Editor trước khi kết nối GitHub, xem mục **Lỗi Supabase Preview: bảng đã tồn tại** bên dưới để đồng bộ lịch sử migration. Các bảng dùng Row Level Security; mỗi tài khoản chỉ truy cập bản ghi của mình.
 2. Sao chép `.env.example` thành `.env.local` và điền `NEXT_PUBLIC_SUPABASE_URL` từ **Connect** cùng `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` từ **Settings → API Keys**. Dùng key bắt đầu bằng `sb_publishable_`; không điền secret hoặc service role key vào biến `NEXT_PUBLIC_*`.
 3. Trong Supabase **Authentication → Providers**, bật **Email**. Nếu yêu cầu xác nhận email, người đăng ký phải bấm liên kết nhận được trước khi đăng nhập. Dịch vụ gửi email mặc định của Supabase chỉ gửi tới địa chỉ thuộc team dự án và giới hạn 2 email/giờ; để đăng ký bằng email cá nhân khác, cấu hình **Authentication → SMTP Settings → Custom SMTP**. Xem [hướng dẫn SMTP của Supabase](https://supabase.com/docs/guides/auth/auth-smtp).
 4. Nếu dùng Google, tạo OAuth client trong Google Cloud, dùng callback URL do Supabase hiển thị ở trang cấu hình Google Provider, sau đó điền Client ID/Secret vào Supabase. Không đưa Google Secret vào mã nguồn ứng dụng.
@@ -33,6 +33,33 @@ Khi chạy `npm run dev`, đường dẫn `/preview` hiển thị dữ liệu m�
 ## Triển khai
 
 Đưa repository lên Vercel bằng tài khoản của bạn, thêm các biến môi trường như `.env.local`, và chạy migration trên dự án Supabase thật trước khi dùng. Đặt Site URL cùng redirect URLs trong Supabase theo tên miền Vercel. Đặt cùng URL trong cấu hình OAuth Google nếu nhà cung cấp yêu cầu. Chạy `npm run build` trước khi đẩy phiên bản mới. Nếu Vercel đang deploy từ GitHub, các thay đổi trên máy chỉ xuất hiện trên website sau khi commit và push vào nhánh triển khai.
+
+### Lỗi Supabase Preview: bảng đã tồn tại
+
+Nếu báo `relation "profiles" already exists` khi chạy `0001_initial.sql`, Supabase đang cố tạo lại bảng đã có. Trường hợp thường gặp là đã chạy file trong SQL Editor, nhưng lịch sử `supabase_migrations.schema_migrations` chưa ghi nhận migration `0001`; GitHub Integration coi file là chưa áp dụng.
+
+Trong **SQL Editor của đúng branch/project bị lỗi**, kiểm tra trước:
+
+```sql
+select
+  to_regclass('public.profiles') as profiles,
+  to_regclass('public.word_entries') as word_entries,
+  to_regclass('public.review_states') as review_states,
+  to_regclass('public.word_entries_active_unique') as unique_index,
+  to_regclass('supabase_migrations.schema_migrations') as migration_history;
+```
+
+Nếu cả ba bảng, index, RLS policies và triggers trong `0001_initial.sql` đều đã tồn tại, nhưng lịch sử thiếu phiên bản `0001`, dùng Supabase CLI **liên kết tới đúng branch/project bị lỗi**:
+
+```bash
+supabase login
+supabase link --project-ref <project-ref-cua-branch-bi-loi>
+supabase migration list --linked
+supabase migration repair 0001 --status applied --linked
+supabase migration list --linked
+```
+
+Nếu chưa cài CLI, xem [cách cài Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started). Lệnh `repair` chỉ đánh dấu migration đã áp dụng, không tạo bảng và không xóa dữ liệu. Sau đó chạy lại Supabase Preview. Nếu schema chưa đầy đủ, không đánh dấu đã áp dụng: cần đối chiếu và hoàn tất schema trước. Không xóa `profiles` hoặc chạy lại toàn bộ migration trên database đang có dữ liệu. [Hướng dẫn sửa migration history của Supabase](https://supabase.com/docs/guides/deployment/database-migrations#step-3-if-the-migration-history-table-is-wrong).
 
 ## Dữ liệu và sao lưu
 
