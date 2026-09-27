@@ -12,9 +12,9 @@ Sổ từ vựng cá nhân bằng Next.js 16, TypeScript, Tailwind CSS, shadcn/u
 
 1. Tạo dự án Supabase. Trong **SQL Editor**, chạy nội dung [migration](supabase/migrations/0001_initial.sql). Các bảng dùng Row Level Security; mỗi tài khoản chỉ truy cập bản ghi của mình.
 2. Sao chép `.env.example` thành `.env.local` và điền `NEXT_PUBLIC_SUPABASE_URL` từ **Connect** cùng `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` từ **Settings → API Keys**. Dùng key bắt đầu bằng `sb_publishable_`; không điền secret hoặc service role key vào biến `NEXT_PUBLIC_*`.
-3. Trong Supabase **Authentication → Providers**, bật **Email**. Nếu yêu cầu xác nhận email, người đăng ký phải bấm liên kết nhận được trước khi đăng nhập. Cấu hình dịch vụ gửi email phù hợp trước khi dùng lâu dài.
+3. Trong Supabase **Authentication → Providers**, bật **Email**. Nếu yêu cầu xác nhận email, người đăng ký phải bấm liên kết nhận được trước khi đăng nhập. Dịch vụ gửi email mặc định của Supabase chỉ gửi tới địa chỉ thuộc team dự án và giới hạn 2 email/giờ; để đăng ký bằng email cá nhân khác, cấu hình **Authentication → SMTP Settings → Custom SMTP**. Xem [hướng dẫn SMTP của Supabase](https://supabase.com/docs/guides/auth/auth-smtp).
 4. Nếu dùng Google, tạo OAuth client trong Google Cloud, dùng callback URL do Supabase hiển thị ở trang cấu hình Google Provider, sau đó điền Client ID/Secret vào Supabase. Không đưa Google Secret vào mã nguồn ứng dụng.
-5. Trong Supabase **Authentication → URL Configuration**, đặt Site URL là `http://localhost:3000` khi chạy local; thêm redirect URL `http://localhost:3000/auth/callback` và `http://localhost:3000/auth/callback?next=/auth/reset`. Khi triển khai, thêm tương ứng URL của website thật. Luồng đặt lại mật khẩu gửi qua email và quay về `/auth/reset` sau callback.
+5. Trong Supabase **Authentication → URL Configuration**, đặt Site URL là `https://noteielts.vercel.app` cho bản triển khai; thêm redirect URL `https://noteielts.vercel.app/auth/callback` và `https://noteielts.vercel.app/auth/callback?next=/auth/reset`. Để chạy local, thêm `http://localhost:3000/auth/callback` và `http://localhost:3000/auth/callback?next=/auth/reset`. Luồng đặt lại mật khẩu gửi qua email và quay về `/auth/reset` sau callback.
 6. Chạy:
 
 ```bash
@@ -28,7 +28,7 @@ Khi chạy `npm run dev`, đường dẫn `/preview` hiển thị dữ liệu m�
 
 ## Triển khai
 
-Đưa repository lên Vercel bằng tài khoản của bạn, thêm các biến môi trường như `.env.local`, và chạy migration trên dự án Supabase thật trước khi dùng. Đặt Site URL cùng redirect URLs trong Supabase theo tên miền Vercel. Đặt cùng URL trong cấu hình OAuth Google nếu nhà cung cấp yêu cầu. Chạy `npm run build` trước khi đẩy phiên bản mới.
+Đưa repository lên Vercel bằng tài khoản của bạn, thêm các biến môi trường như `.env.local`, và chạy migration trên dự án Supabase thật trước khi dùng. Đặt Site URL cùng redirect URLs trong Supabase theo tên miền Vercel. Đặt cùng URL trong cấu hình OAuth Google nếu nhà cung cấp yêu cầu. Chạy `npm run build` trước khi đẩy phiên bản mới. Nếu Vercel đang deploy từ GitHub, các thay đổi trên máy chỉ xuất hiện trên website sau khi commit và push vào nhánh triển khai.
 
 ## Dữ liệu và sao lưu
 
@@ -53,7 +53,7 @@ npm test
 npm run test:ui
 ```
 
-`test:ui` dùng Chrome cài ở `/usr/bin/google-chrome`; nếu khác đường dẫn, đặt `CHROME_BIN` trước khi chạy. Test tự khởi động một máy chủ Next.js trên cổng 3137 và kiểm tra giao diện ở 375, 768 và 1440 px.
+`test:ui` dùng Chrome cài ở `/usr/bin/google-chrome`; nếu khác đường dẫn, đặt `CHROME_BIN` trước khi chạy. Test dùng lại máy chủ dev ở cổng 3000 nếu đang chạy, hoặc tự khởi động trên cổng 3137; giao diện được kiểm tra ở 375, 768 và 1440 px.
 
 Để kiểm tra dữ liệu thật, tạo hai tài khoản Supabase khác nhau và kiểm tra tài khoản B không xem được từ của A; đăng nhập A trên hai trình duyệt để kiểm tra đồng bộ, sửa cùng mục để kiểm tra cảnh báo xung đột; xuất JSON, khôi phục vào tài khoản thử nghiệm, rồi nhập lại một lần nữa để xác nhận không nhân đôi.
 # noteielts

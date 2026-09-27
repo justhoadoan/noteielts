@@ -7,6 +7,31 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/browser";
 
+function signupErrorMessage(code?: string, message?: string, status?: number) {
+  if (status === 429 || /rate limit|too many requests/i.test(message ?? "")) {
+    return "Đã gửi quá nhiều yêu cầu đăng ký hoặc email xác nhận. Hãy đợi rồi thử lại; nếu lỗi lặp lại, kiểm tra giới hạn gửi email trong Supabase.";
+  }
+  if (/email.*invalid|invalid.*email/i.test(message ?? "")) {
+    return "Địa chỉ email không hợp lệ. Hãy dùng email thật mà bạn có thể nhận thư.";
+  }
+  if (/email.*not authorized|not authorized.*email/i.test(message ?? "")) {
+    return "Supabase chưa cho phép gửi email xác nhận tới địa chỉ này. Hãy cấu hình Custom SMTP hoặc thêm email vào nhóm dự án Supabase.";
+  }
+  switch (code) {
+    case "email_address_invalid": return "Địa chỉ email không hợp lệ. Hãy dùng email thật mà bạn có thể nhận thư.";
+    case "email_address_not_authorized": return "Supabase chưa cho phép gửi email xác nhận tới địa chỉ này. Hãy cấu hình Custom SMTP hoặc thêm email vào nhóm dự án Supabase.";
+    case "weak_password": return "Mật khẩu chưa đủ mạnh. Hãy thử mật khẩu dài hơn, có chữ và số.";
+    case "email_exists":
+    case "user_already_exists": return "Email này đã có tài khoản. Hãy đăng nhập hoặc đặt lại mật khẩu.";
+    case "email_provider_disabled":
+    case "signup_disabled": return "Đăng ký bằng email đang bị tắt trong Supabase. Hãy bật Email và cho phép đăng ký trong Authentication.";
+    case "over_email_send_rate_limit":
+    case "over_request_rate_limit": return "Đã gửi quá nhiều yêu cầu. Hãy đợi vài phút rồi thử lại.";
+    case "email_send_failure": return "Supabase không gửi được thư xác nhận. Hãy kiểm tra cấu hình gửi email trong Supabase.";
+    default: return `Không tạo được tài khoản${message ? `: ${message}` : code ? ` (mã lỗi: ${code})` : ""}. Hãy kiểm tra Auth logs trong Supabase nếu lỗi tiếp diễn.`;
+  }
+}
+
 export function SignIn({ authError = false }: { authError?: boolean }) {
   const router = useRouter();
   const [error, setError] = useState(authError ? "Không hoàn tất được đăng nhập. Hãy thử lại." : "");
@@ -26,27 +51,30 @@ export function SignIn({ authError = false }: { authError?: boolean }) {
   }
   async function submitCredentials(event: React.FormEvent) {
     event.preventDefault(); setError(""); setSuccess(""); setPending(true);
-    const supabase = createClient();
-    if (mode === "forgot") {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset` });
+    try {
+      const supabase = createClient();
+      if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset` });
+        if (error) setError("Chưa gửi được email đặt lại mật khẩu. Hãy thử lại.");
+        else setSuccess("Nếu email này có tài khoản, bạn sẽ nhận được liên kết đặt lại mật khẩu.");
+        return;
+      }
+      if (mode === "signup") {
+        if (password.length < 8) { setError("Mật khẩu cần ít nhất 8 ký tự."); return; }
+        const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
+        if (error) setError(signupErrorMessage(error.code, error.message, error.status));
+        else if (data.session) { router.push("/"); router.refresh(); }
+        else setSuccess("Hãy mở email và xác nhận tài khoản, sau đó quay lại đăng nhập.");
+        return;
+      }
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) setError("Email hoặc mật khẩu chưa đúng, hoặc email chưa được xác nhận.");
+      else { router.push("/"); router.refresh(); }
+    } catch {
+      setError("Không kết nối được Supabase. Hãy kiểm tra mạng rồi thử lại.");
+    } finally {
       setPending(false);
-      if (error) setError("Chưa gửi được email đặt lại mật khẩu. Hãy thử lại.");
-      else setSuccess("Nếu email này có tài khoản, bạn sẽ nhận được liên kết đặt lại mật khẩu.");
-      return;
     }
-    if (mode === "signup") {
-      if (password.length < 8) { setError("Mật khẩu cần ít nhất 8 ký tự."); setPending(false); return; }
-      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
-      setPending(false);
-      if (error) setError("Không tạo được tài khoản. Kiểm tra email, mật khẩu hoặc thử lại sau.");
-      else if (data.session) { router.push("/"); router.refresh(); }
-      else setSuccess("Hãy mở email và xác nhận tài khoản, sau đó quay lại đăng nhập.");
-      return;
-    }
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setPending(false);
-    if (error) setError("Email hoặc mật khẩu chưa đúng, hoặc email chưa được xác nhận.");
-    else { router.push("/"); router.refresh(); }
   }
   return <main className="signin-page">
     <div className="signin-nav"><span className="brand-mark">N</span><strong>NoteIelts</strong><span className="signin-nav-caption">Sổ từ vựng cá nhân</span></div>
@@ -63,7 +91,7 @@ export function SignIn({ authError = false }: { authError?: boolean }) {
         <form className="auth-form" onSubmit={submitCredentials}><label className="auth-label" htmlFor="auth-email">Email</label><Input id="auth-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="h-11" />
           {mode !== "forgot" && <><label className="auth-label" htmlFor="auth-password">Mật khẩu</label><Input id="auth-password" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} required minLength={mode === "signup" ? 8 : undefined} value={password} onChange={(e) => setPassword(e.target.value)} className="h-11" /></>}
           {mode === "login" && <button type="button" className="auth-link auth-forgot" onClick={() => { setMode("forgot"); setError(""); setSuccess(""); }}>Quên mật khẩu?</button>}
-          <Button className="h-11 w-full mt-5" disabled={pending}>{pending ? "Vui lòng chờ…" : mode === "signup" ? "Tạo tài khoản" : mode === "forgot" ? "Gửi email đặt lại" : "Đăng nhập bằng email"}</Button>
+          <Button type="submit" className="h-11 w-full mt-5" disabled={pending}>{pending ? "Vui lòng chờ…" : mode === "signup" ? "Tạo tài khoản" : mode === "forgot" ? "Gửi email đặt lại" : "Đăng nhập bằng email"}</Button>
         </form>
         <div className="auth-switch">{mode === "login" ? <>Chưa có tài khoản? <button onClick={() => { setMode("signup"); setError(""); setSuccess(""); }}>Đăng ký</button></> : <button onClick={() => { setMode("login"); setError(""); setSuccess(""); }}>Quay lại đăng nhập</button>}</div>
         {mode !== "forgot" && <div className="auth-divider"><span>hoặc</span></div>}
