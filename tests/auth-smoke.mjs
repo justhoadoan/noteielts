@@ -67,6 +67,19 @@ try {
     assert.ok(await page.getByRole('button', { name: 'Gửi email đặt lại' }).isVisible());
     await page.goto(`http://localhost:${port}/preview`);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width, `dashboard overflow at ${width}px`);
+    await page.getByRole('button', { name: 'Đóng nhắc sao lưu trong 7 ngày' }).click();
+    assert.equal(await page.locator('.backup-banner').count(), 0);
+    if (width > 700) {
+      await page.getByRole('button', { name: 'Đóng gợi ý ôn tập' }).click();
+      assert.equal(await page.locator('.sidebar-tip').count(), 0);
+    }
+    await page.reload();
+    await page.waitForFunction(() => !document.querySelector('.backup-banner'));
+    assert.equal(await page.locator('.backup-banner').count(), 0, 'backup reminder should stay dismissed after reload');
+    if (width > 700) {
+      await page.waitForFunction(() => !document.querySelector('.sidebar-tip'));
+      assert.equal(await page.locator('.sidebar-tip').count(), 0, 'sidebar tip should stay dismissed after reload');
+    }
     await page.getByRole('button', { name: /^Sổ từ/ }).click();
     assert.ok(await page.getByRole('heading', { name: 'Sổ từ của bạn' }).isVisible());
     await page.getByRole('button', { name: 'Ôn tập' }).click();
@@ -104,6 +117,55 @@ try {
       assert.equal(await page.locator('.flashcard-back').evaluate((node) => getComputedStyle(node).visibility), 'visible');
       assert.equal(await page.locator('.flashcard-front').evaluate((node) => getComputedStyle(node).visibility), 'hidden');
       await page.emulateMedia({ reducedMotion: 'no-preference' });
+    }
+    if (width === 375) {
+      const wordForDefinition = (definition) => definition.includes('pleasant discoveries') ? 'serendipity' : 'resilient';
+      await page.getByRole('button', { name: 'Đổi ngày' }).click();
+      await page.getByRole('button', { name: /Luyện Chọn, gõ/ }).click();
+      await page.getByRole('button', { name: 'Bắt đầu luyện' }).click();
+      assert.ok(await page.getByRole('heading', { name: 'Luyện từ vựng' }).isVisible());
+      let madeMistake = false;
+      for (let attempt = 0; attempt < 12; attempt++) {
+        if (await page.getByRole('heading', { name: /Bạn đã trả lời đúng cả/ }).count()) break;
+        const definition = await page.locator('.study-prompt blockquote').innerText();
+        const correct = wordForDefinition(definition);
+        if (await page.locator('.study-options').count()) {
+          const option = !madeMistake ? (correct === 'serendipity' ? 'resilient' : 'serendipity') : correct;
+          await page.locator('.study-options').getByRole('button', { name: option, exact: true }).click();
+          if (!madeMistake) {
+            await page.getByText('Chưa đúng, từ này sẽ xuất hiện lại.').waitFor();
+            madeMistake = true;
+          }
+        } else {
+          await page.locator('#learn-answer').fill(correct);
+          await page.getByRole('button', { name: 'Kiểm tra', exact: true }).click();
+        }
+        await page.getByRole('button', { name: /Tiếp tục|Xem kết quả/ }).click();
+      }
+      assert.ok(madeMistake);
+      assert.ok(await page.getByRole('heading', { name: 'Bạn đã trả lời đúng cả 2 từ' }).isVisible());
+      assert.ok(await page.getByRole('button', { name: 'Luyện lại từ sai' }).isVisible());
+      await page.getByRole('button', { name: 'Chọn chế độ khác' }).click();
+      await page.getByRole('button', { name: /Kiểm tra Làm bài/ }).click();
+      await page.getByRole('button', { name: 'Bắt đầu kiểm tra' }).click();
+      assert.ok(await page.getByRole('heading', { name: 'Kiểm tra từ vựng' }).isVisible());
+      const firstDefinition = await page.locator('.study-prompt blockquote').innerText();
+      await page.locator('.study-options').getByRole('button', { name: wordForDefinition(firstDefinition), exact: true }).click();
+      await page.getByRole('button', { name: 'Câu tiếp' }).click();
+      assert.ok(await page.getByRole('button', { name: 'Nộp bài' }).isDisabled());
+      await page.locator('#test-answer').fill('wrong');
+      await page.getByRole('button', { name: 'Câu trước' }).click();
+      assert.ok(await page.locator('.study-option.selected').isVisible());
+      await page.getByRole('button', { name: 'Câu tiếp' }).click();
+      await page.getByRole('button', { name: 'Nộp bài' }).click();
+      assert.ok(await page.getByRole('heading', { name: '1/2 câu đúng' }).isVisible());
+      assert.ok(await page.getByRole('button', { name: 'Làm lại câu sai' }).isVisible());
+      await page.getByRole('button', { name: 'Làm lại câu sai' }).click();
+      assert.ok(await page.locator('#test-answer').isVisible());
+      const retryDefinition = await page.locator('.study-prompt blockquote').innerText();
+      await page.locator('#test-answer').fill(wordForDefinition(retryDefinition));
+      await page.getByRole('button', { name: 'Nộp bài' }).click();
+      assert.ok(await page.getByRole('heading', { name: '1/1 câu đúng' }).isVisible());
     }
     await page.getByRole('button', { name: 'Cài đặt' }).click();
     assert.ok(await page.getByRole('heading', { name: 'Cài đặt & sao lưu' }).isVisible());

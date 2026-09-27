@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { backupSchema, type Backup, type WordEntry, type WordInput, wordSchema } from "@/lib/model";
 
@@ -85,6 +86,25 @@ export async function markReview(id: string, remembered: boolean): Promise<Actio
     if (error) throw error;
     revalidatePath("/");
     return { ok: true };
+  } catch (error) { return { ok: false, error: message(error) }; }
+}
+
+export async function markStudyResults(raw: unknown): Promise<ActionResult> {
+  try {
+    const rows = z.array(z.object({ id: z.uuid(), remembered: z.boolean() })).min(1).max(50).parse(raw);
+    if (new Set(rows.map((row) => row.id)).size !== rows.length) throw new Error("Danh sách từ ôn tập không hợp lệ.");
+    const { supabase, user } = await authorized();
+    const { data: owned, error: ownedError } = await supabase.from("word_entries").select("id")
+      .eq("user_id", user.id).is("deleted_at", null).in("id", rows.map((row) => row.id));
+    if (ownedError) throw ownedError;
+    if (owned?.length !== rows.length) return { ok: false, error: "Một số từ đã bị xóa hoặc không thuộc tài khoản của bạn. Hãy tải lại sổ từ." };
+    const reviewedAt = new Date().toISOString();
+    const { error } = await supabase.from("review_states").upsert(rows.map((row) => ({
+      user_id: user.id, entry_id: row.id, remembered: row.remembered, last_reviewed_at: reviewedAt,
+    })));
+    if (error) throw error;
+    revalidatePath("/");
+    return { ok: true, count: rows.length };
   } catch (error) { return { ok: false, error: message(error) }; }
 }
 

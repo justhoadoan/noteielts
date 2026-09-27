@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpenText, CalendarDays, ChevronRight, CloudDownload, LayoutGrid, Layers3, LogOut, Plus, Search, Settings2, Trash2, RotateCcw, Pencil, CheckCircle2 } from "lucide-react";
+import { BookOpenText, CalendarDays, ChevronRight, CloudDownload, LayoutGrid, Layers3, LogOut, Plus, Search, Settings2, Trash2, RotateCcw, Pencil, CheckCircle2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,24 @@ const nav: Array<{ id: View; label: string; icon: typeof LayoutGrid }> = [
   { id: "settings", label: "Cài đặt", icon: Settings2 },
 ];
 
+const preferenceEvent = "noteielts-preference";
+function subscribePreference(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener(preferenceEvent, callback);
+  return () => { window.removeEventListener("storage", callback); window.removeEventListener(preferenceEvent, callback); };
+}
+function usePreference(key: string) {
+  const [fallback, setFallback] = useState<{ key: string; value: string } | null>(null);
+  const stored = useSyncExternalStore(subscribePreference, () => {
+    try { return localStorage.getItem(key); } catch { return null; }
+  }, () => null);
+  function save(value: string) {
+    try { localStorage.setItem(key, value); window.dispatchEvent(new Event(preferenceEvent)); }
+    catch { setFallback({ key, value }); }
+  }
+  return [fallback?.key === key ? fallback.value : stored, save] as const;
+}
+
 export function Notebook({ initialEntries, profile, email, now }: { initialEntries: WordEntry[]; profile: Profile; email: string; now: string }) {
   const router = useRouter();
   const entries = initialEntries;
@@ -32,6 +50,8 @@ export function Notebook({ initialEntries, profile, email, now }: { initialEntri
   const [trash, setTrash] = useState(false);
   const [notice, setNotice] = useState("");
   const [busyId, setBusyId] = useState("");
+  const [tipDismissed, saveTipPreference] = usePreference(`noteielts:hide-tip:${profile.user_id}`);
+  const [backupDismissedAt, saveBackupPreference] = usePreference(`noteielts:backup-dismissed:${profile.user_id}`);
   const today = localDate(profile.timezone);
 
   useEffect(() => {
@@ -52,6 +72,14 @@ export function Notebook({ initialEntries, profile, email, now }: { initialEntri
   const remembered = active.filter((item) => item.review_state?.remembered).length;
   const backupDue = active.length > 0 && (!profile.last_export_at || new Date(now).getTime() - new Date(profile.last_export_at).getTime() > 7 * 86400000) &&
     (!profile.last_export_at || active.some((item) => new Date(item.updated_at).getTime() > new Date(profile.last_export_at!).getTime() || (item.review_state && new Date(item.review_state.last_reviewed_at).getTime() > new Date(profile.last_export_at!).getTime())));
+  const showBackupReminder = backupDue && new Date(now).getTime() - (Number(backupDismissedAt) || 0) >= 7 * 86400000;
+
+  function dismissTip() {
+    saveTipPreference("1");
+  }
+  function dismissBackup() {
+    saveBackupPreference(String(Date.now()));
+  }
 
   const filtered = useMemo(() => entries.filter((item) => Boolean(item.deleted_at) === trash &&
     (pos === "all" || item.part_of_speech === pos) &&
@@ -81,13 +109,13 @@ export function Notebook({ initialEntries, profile, email, now }: { initialEntri
     <a className="skip-link" href="#main-content">Chuyển đến nội dung</a>
     <aside className="sidebar"><div className="brand"><span className="brand-mark">N</span><div><strong>NoteIelts</strong><small>Personal vocabulary</small></div></div>
       <div className="sidebar-section-label">KHÔNG GIAN CỦA BẠN</div><nav className="side-nav" aria-label="Điều hướng chính">{nav.map((item) => <button key={item.id} className={view === item.id ? "nav-link active" : "nav-link"} onClick={() => go(item.id)} aria-current={view === item.id ? "page" : undefined}><item.icon size={19} aria-hidden="true" /><span>{item.label}</span>{item.id === "words" && <span className="nav-count">{active.length}</span>}</button>)}</nav>
-      <div className="sidebar-spacer" /><div className="sidebar-tip"><div className="tip-icon"><Layers3 size={18} aria-hidden="true" /></div><strong>Mỗi ngày một chút.</strong><p>Ôn lại từ vừa ghi để nhớ lâu hơn.</p><button onClick={() => go("review")}>Bắt đầu ôn <ChevronRight size={15} aria-hidden="true" /></button></div>
+      <div className="sidebar-spacer" />{tipDismissed !== "1" && <div className="sidebar-tip"><button className="tip-dismiss" type="button" onClick={dismissTip} aria-label="Đóng gợi ý ôn tập" title="Đóng gợi ý"><X size={17} aria-hidden="true" /></button><div className="tip-icon"><Layers3 size={18} aria-hidden="true" /></div><strong>Mỗi ngày một chút.</strong><p>Ôn lại từ vừa ghi để nhớ lâu hơn.</p><button className="tip-start" onClick={() => go("review")}>Bắt đầu ôn <ChevronRight size={15} aria-hidden="true" /></button></div>}
       <div className="account"><span className="account-avatar">{email.charAt(0).toUpperCase()}</span><div><strong>Tài khoản của tôi</strong><small title={email}>{email}</small></div><Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Đăng xuất" title="Đăng xuất" onClick={() => void signOut()}><LogOut size={18} aria-hidden="true" /></Button></div>
     </aside>
     <main id="main-content" className="main-content"><div className="page-wrap">
       <header className="page-header"><div className="mobile-brand"><span className="brand-mark">N</span><strong>NoteIelts</strong></div><div className="header-date"><CalendarDays size={16} aria-hidden="true" /> {displayDate(today)}</div><Button className="add-button" onClick={() => setAdding(true)}><Plus size={18} aria-hidden="true" /> Thêm từ</Button></header>
-      {notice && <div className="notice" role="status"><CheckCircle2 size={17} aria-hidden="true" /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Đóng thông báo"><Trash2 size={15} aria-hidden="true" /></button></div>}
-      {backupDue && <div className="backup-banner"><CloudDownload size={20} aria-hidden="true" /><div><strong>Đã đến lúc lưu bản sao</strong><span>Xuất bản sao dữ liệu để giữ từ vựng của bạn an toàn lâu dài.</span></div><Button variant="outline" onClick={() => go("settings")}>Sao lưu ngay</Button></div>}
+      {notice && <div className="notice" role="status"><CheckCircle2 size={17} aria-hidden="true" /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Đóng thông báo"><X size={15} aria-hidden="true" /></button></div>}
+      {showBackupReminder && <div className="backup-banner"><CloudDownload size={20} aria-hidden="true" /><div><strong>Đã đến lúc lưu bản sao</strong><span>Xuất bản sao dữ liệu để giữ từ vựng của bạn an toàn lâu dài.</span></div><Button variant="outline" onClick={() => go("settings")}>Sao lưu ngay</Button><button className="backup-dismiss" type="button" onClick={dismissBackup} aria-label="Đóng nhắc sao lưu trong 7 ngày" title="Đóng nhắc sao lưu"><X size={18} aria-hidden="true" /></button></div>}
       {view === "today" && <><div className="page-heading"><div><span className="eyebrow">SỔ TỪ CỦA BẠN</span><h1>Chào bạn, hôm nay học gì?</h1><p>Ghi lại từ mới và tiến bộ theo nhịp của riêng bạn.</p></div></div>
         <div className="stat-grid"><div className="stat-card"><span className="stat-label">Từ đã ghi</span><strong>{active.length}</strong><span className="stat-caption">Trong sổ từ của bạn</span><BookOpenText aria-hidden="true" /></div><div className="stat-card"><span className="stat-label">Từ hôm nay</span><strong>{todayEntries.length}</strong><span className="stat-caption">Ngày {displayDate(today)}</span><CalendarDays aria-hidden="true" /></div><div className="stat-card"><span className="stat-label">Đã nhớ</span><strong>{remembered}</strong><span className="stat-caption">Qua những lần ôn tập</span><CheckCircle2 aria-hidden="true" /></div></div>
         <div className="content-grid"><section className="content-card"><div className="card-heading"><div><span className="section-kicker">HÔM NAY</span><h2>Từ mới của bạn</h2></div><button className="text-link" onClick={() => go("words")}>Xem sổ từ <ChevronRight size={16} aria-hidden="true" /></button></div>{todayEntries.length ? wordRows(todayEntries.slice(0, 6)) : <div className="empty-state"><span className="empty-icon"><BookOpenText aria-hidden="true" /></span><h3>Trang hôm nay còn trống</h3><p>Thêm từ đầu tiên để bắt đầu một ngày học mới.</p><Button onClick={() => setAdding(true)}><Plus size={18} aria-hidden="true" /> Thêm từ đầu tiên</Button></div>}</section>

@@ -1,6 +1,6 @@
 # NoteIelts
 
-Sổ từ vựng cá nhân bằng Next.js 16, TypeScript, Tailwind CSS, shadcn/ui và Supabase. Ghi từ theo ngày, tra nghĩa tiếng Anh, ôn flashcard và xuất bản sao dữ liệu. Giao diện tiếng Việt, dùng được trên điện thoại và máy tính.
+Sổ từ vựng cá nhân bằng Next.js 16, TypeScript, Tailwind CSS, shadcn/ui và Supabase. Ghi từ theo ngày, tra nghĩa tiếng Anh, học flashcard, luyện tập, kiểm tra và xuất bản sao dữ liệu. Giao diện tiếng Việt, dùng được trên điện thoại và máy tính.
 
 ## Chuẩn bị
 
@@ -29,6 +29,8 @@ Nếu dùng Gmail làm Custom SMTP và Supabase Auth log báo `535 5.7.8 Usernam
 Mở `http://localhost:3000`. Nếu chưa điền biến môi trường, ứng dụng hiển thị hướng dẫn kết nối thay vì cho lưu dữ liệu vào một nơi tạm.
 
 Khi chạy `npm run dev`, đường dẫn `/preview` hiển thị dữ liệu mẫu để xem giao diện và thử lật flashcard mà chưa cần kết nối Supabase. Route này trả 404 trong bản production; thao tác lưu trong preview không ghi dữ liệu.
+
+Trong **Ôn tập**, chọn ngày hoặc khoảng ngày rồi chọn Flashcard, Luyện hoặc Kiểm tra. **Luyện** gồm chọn từ theo nghĩa và gõ từ; câu sai có đáp án ngay và quay lại cuối lượt đến khi trả lời đúng. **Kiểm tra** trộn câu chọn đáp án và gõ từ, cho xem lại câu trước khi nộp, rồi hiển thị điểm, đáp án và nút làm lại câu sai. Mỗi phiên Luyện/Kiểm tra dùng tối đa 50 mục; kết quả ghi nhớ được đồng bộ vào Supabase khi hoàn thành, và có nút thử lại nếu lưu lỗi. Câu gõ được so khớp với từ đã lưu, bỏ qua khác biệt chữ hoa và khoảng trắng thừa.
 
 ## Triển khai
 
@@ -68,6 +70,7 @@ Nếu chưa cài CLI, xem [cách cài Supabase CLI](https://supabase.com/docs/gu
 - **Cài đặt → Tải JSON** xuất đầy đủ từ, thùng rác và trạng thái ôn. Giữ file ở một nơi riêng của bạn. **Tải CSV** dành cho bảng tính và không dùng để khôi phục.
 - **Cài đặt → Khôi phục** xem trước file JSON, thêm những mục chưa có và giữ nguyên mục hiện hữu. Nhập lại cùng file không nhân đôi mục. File hiện giới hạn 1,5 MB và 2.000 mục mỗi lần; chia bản sao lớn thành nhiều phần nếu cần.
 - Ứng dụng nhắc xuất bản sao khi đã quá một tuần kể từ bản JSON gần nhất và có từ mới hoặc từ được sửa. Supabase Free có thể tạm dừng khi ít hoạt động; bản JSON riêng giúp bạn chủ động giữ dữ liệu. [Tài liệu Supabase về tạm dừng](https://supabase.com/docs/guides/platform/free-project-pausing) và [sao lưu](https://supabase.com/docs/guides/platform/backups).
+- Có thể đóng gợi ý ôn tập ở thanh bên và nhắc sao lưu bằng nút X. Gợi ý ôn tập được ẩn trên thiết bị hiện tại; nhắc sao lưu xuất hiện lại sau 7 ngày nếu vẫn đến hạn. Lựa chọn được lưu riêng theo tài khoản trong trình duyệt.
 - Nếu gửi lưu khi mạng lỗi, form giữ bản nháp trên thiết bị. Lần thử lại dùng cùng ID để tránh ghi trùng. Chỉ thông báo thành công sau khi cloud xác nhận.
 
 ## Nguồn từ điển
