@@ -49,6 +49,18 @@ try {
       await page.getByRole('alert').getByText(/Địa chỉ email không hợp lệ/).waitFor();
       assert.equal(signupRequests, 1, 'sign-up button should submit exactly once');
       await page.unroute('**/auth/v1/signup**');
+      await page.route('**/auth/v1/signup**', async (route) => {
+        await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'unexpected_failure', message: 'Error sending confirmation email' }) });
+      });
+      await page.route('**/auth/v1/resend**', async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      });
+      await page.getByRole('button', { name: 'Tạo tài khoản' }).click();
+      await page.locator('.form-error').getByText(/không gửi được email xác nhận/).waitFor();
+      await page.getByRole('button', { name: 'Gửi lại email xác nhận' }).click();
+      await page.locator('.success-message').getByText(/Đã gửi lại email xác nhận/).waitFor();
+      await page.unroute('**/auth/v1/signup**');
+      await page.unroute('**/auth/v1/resend**');
     }
     await page.getByRole('button', { name: 'Quay lại đăng nhập' }).click();
     await page.getByRole('button', { name: 'Quên mật khẩu?' }).click();

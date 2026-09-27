@@ -22,6 +22,8 @@ npm install
 npm run dev
 ```
 
+Nếu dùng Gmail làm Custom SMTP và Supabase Auth log báo `535 5.7.8 Username and Password not accepted`, Gmail đã từ chối thông tin đăng nhập SMTP. Bật xác minh 2 bước trên tài khoản Google, tạo [App Password](https://support.google.com/accounts/answer/185833), rồi trong Supabase **Authentication → SMTP Settings** đặt host `smtp.gmail.com`, port `465` hoặc `587`, username là địa chỉ Gmail đầy đủ, sender email là cùng địa chỉ đó và password là App Password mới tạo (không dùng mật khẩu Gmail thông thường). [Hướng dẫn Gmail SMTP của Supabase](https://supabase.com/docs/guides/troubleshooting/using-google-smtp-with-supabase-custom-smtp-ZZzU4Y). Chỉ nhập App Password trong Supabase Dashboard; không lưu vào `.env.local` hay commit lên Git. Sau khi sửa, thử đăng ký lại; nếu tài khoản đã xuất hiện trong **Authentication → Users** nhưng chưa xác nhận, dùng nút **Gửi lại email xác nhận** trên trang đăng ký.
+
 Mở `http://localhost:3000`. Nếu chưa điền biến môi trường, ứng dụng hiển thị hướng dẫn kết nối thay vì cho lưu dữ liệu vào một nơi tạm.
 
 Khi chạy `npm run dev`, đường dẫn `/preview` hiển thị dữ liệu mẫu để xem giao diện và thử lật flashcard mà chưa cần kết nối Supabase. Route này trả 404 trong bản production; thao tác lưu trong preview không ghi dữ liệu.

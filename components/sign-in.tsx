@@ -17,6 +17,9 @@ function signupErrorMessage(code?: string, message?: string, status?: number) {
   if (/email.*not authorized|not authorized.*email/i.test(message ?? "")) {
     return "Supabase chưa cho phép gửi email xác nhận tới địa chỉ này. Hãy cấu hình Custom SMTP hoặc thêm email vào nhóm dự án Supabase.";
   }
+  if (/sending confirmation email|smtp|mail server/i.test(message ?? "")) {
+    return "Supabase không gửi được email xác nhận. Hãy kiểm tra tên đăng nhập và mật khẩu SMTP trong Supabase, rồi gửi lại email.";
+  }
   switch (code) {
     case "email_address_invalid": return "Địa chỉ email không hợp lệ. Hãy dùng email thật mà bạn có thể nhận thư.";
     case "email_address_not_authorized": return "Supabase chưa cho phép gửi email xác nhận tới địa chỉ này. Hãy cấu hình Custom SMTP hoặc thêm email vào nhóm dự án Supabase.";
@@ -40,6 +43,7 @@ export function SignIn({ authError = false }: { authError?: boolean }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [success, setSuccess] = useState("");
+  const [canResend, setCanResend] = useState(false);
   async function signIn() {
     setPending(true);
     setError("");
@@ -50,7 +54,7 @@ export function SignIn({ authError = false }: { authError?: boolean }) {
     if (error) { setError("Không bắt đầu được đăng nhập. Hãy kiểm tra cấu hình Google trong Supabase."); setPending(false); }
   }
   async function submitCredentials(event: React.FormEvent) {
-    event.preventDefault(); setError(""); setSuccess(""); setPending(true);
+    event.preventDefault(); setError(""); setSuccess(""); setCanResend(false); setPending(true);
     try {
       const supabase = createClient();
       if (mode === "forgot") {
@@ -62,14 +66,32 @@ export function SignIn({ authError = false }: { authError?: boolean }) {
       if (mode === "signup") {
         if (password.length < 8) { setError("Mật khẩu cần ít nhất 8 ký tự."); return; }
         const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
-        if (error) setError(signupErrorMessage(error.code, error.message, error.status));
+        if (error) {
+          setError(signupErrorMessage(error.code, error.message, error.status));
+          setCanResend(/sending confirmation email|smtp|mail server/i.test(error.message));
+        }
         else if (data.session) { router.push("/"); router.refresh(); }
-        else setSuccess("Hãy mở email và xác nhận tài khoản, sau đó quay lại đăng nhập.");
+        else { setSuccess("Hãy mở email và xác nhận tài khoản, sau đó quay lại đăng nhập."); setCanResend(true); }
         return;
       }
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) setError("Email hoặc mật khẩu chưa đúng, hoặc email chưa được xác nhận.");
       else { router.push("/"); router.refresh(); }
+    } catch {
+      setError("Không kết nối được Supabase. Hãy kiểm tra mạng rồi thử lại.");
+    } finally {
+      setPending(false);
+    }
+  }
+  async function resendConfirmation() {
+    setError(""); setSuccess(""); setPending(true);
+    try {
+      const { error } = await createClient().auth.resend({
+        type: "signup", email: email.trim(),
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) setError(signupErrorMessage(error.code, error.message, error.status));
+      else setSuccess("Đã gửi lại email xác nhận. Hãy kiểm tra cả hộp thư rác.");
     } catch {
       setError("Không kết nối được Supabase. Hãy kiểm tra mạng rồi thử lại.");
     } finally {
@@ -98,6 +120,7 @@ export function SignIn({ authError = false }: { authError?: boolean }) {
         {mode !== "forgot" && <Button variant="outline" className="google-button" onClick={signIn} disabled={pending}>{pending ? "Đang chuyển đến Google…" : "Tiếp tục với Google"}</Button>}
         {error && <p className="form-error" role="alert">{error}</p>}
         {success && <p className="success-message" role="status">{success}</p>}
+        {mode === "signup" && canResend && <button type="button" className="auth-resend" disabled={pending} onClick={() => void resendConfirmation()}>{pending ? "Đang gửi…" : "Gửi lại email xác nhận"}</button>}
         <small>Dữ liệu từ vựng được lưu trong tài khoản của bạn.</small>
       </section>
     </div>
