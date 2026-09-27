@@ -80,6 +80,20 @@ try {
     assert.ok(await page.getByRole('heading', { name: 'Cài đặt & sao lưu' }).isVisible());
     await page.getByRole('button', { name: 'Thêm từ' }).click();
     assert.ok(await page.getByRole('heading', { name: 'Một từ mới hôm nay' }).isVisible());
+    if (width === 375) {
+      await page.route('**/api/dictionary?word=graps', async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ definitions: [{
+          part_of_speech: 'verb', definition: 'To grip; to take hold, particularly with the hand.',
+          usage_note: '(chiefly African-American Vernacular and UK, dialectal) Alternative form of grasp.', example: '',
+        }], source_name: 'Datamuse' }) });
+      });
+      await page.locator('#word-input').fill('graps');
+      await page.getByRole('button', { name: 'Tra từ' }).click();
+      await page.waitForFunction(() => document.querySelector('#definition')?.value === 'To grip; to take hold, particularly with the hand.');
+      assert.equal(await page.locator('#definition').inputValue(), 'To grip; to take hold, particularly with the hand.');
+      assert.equal(await page.locator('.meaning-option small').innerText(), '(chiefly African-American Vernacular and UK, dialectal) Alternative form of grasp.');
+      await page.unroute('**/api/dictionary?word=graps');
+    }
     await page.getByRole('button', { name: 'Đóng' }).click();
     await page.close();
   }

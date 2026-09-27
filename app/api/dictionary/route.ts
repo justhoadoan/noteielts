@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { parseDatamuseDefinitions } from "@/lib/dictionary";
+import { normalizeDefinition, parseDatamuseDefinitions } from "@/lib/dictionary";
 
 type DictionaryEntry = { meanings?: Array<{ partOfSpeech?: string; definitions?: Array<{ definition?: string; example?: string }> }> };
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       .flatMap((entry) => (entry.meanings ?? []).flatMap((meaning) =>
         (meaning.definitions ?? []).map((definition) => ({
           part_of_speech: meaning.partOfSpeech ?? "other",
-          definition: definition.definition ?? "",
+          ...normalizeDefinition(definition.definition ?? ""),
           example: definition.example ?? "",
         })),
       )).filter((item) => item.definition).slice(0, 40);

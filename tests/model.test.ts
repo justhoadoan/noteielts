@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { backupSchema, localDate, wordSchema } from "../lib/model.ts";
-import { parseDatamuseDefinitions } from "../lib/dictionary.ts";
+import { normalizeDefinition, parseDatamuseDefinitions } from "../lib/dictionary.ts";
 
 test("ngày ghi từ dùng múi giờ Việt Nam cả khi UTC còn ngày trước", () => {
   assert.equal(localDate("Asia/Ho_Chi_Minh", new Date("2026-09-27T17:30:00Z")), "2026-09-28");
@@ -31,4 +31,15 @@ test("nguồn từ điển dự phòng chỉ lấy đúng từ và phân loại 
     { part_of_speech: "adjective", definition: "Able to recover quickly.", example: "" },
     { part_of_speech: "noun", definition: "A resilient person.", example: "" },
   ]);
+});
+
+test("nghĩa tham chiếu được tách khỏi ghi chú biến thể, nghĩa thường giữ nguyên", () => {
+  const raw = [{ word: "graps", defs: ["v\t(chiefly African-American Vernacular and UK, dialectal) Alternative form of grasp. [To grip; to take hold, particularly with the hand.] "] }];
+  assert.deepEqual(parseDatamuseDefinitions(raw, "graps"), [{
+    part_of_speech: "verb",
+    definition: "To grip; to take hold, particularly with the hand.",
+    usage_note: "(chiefly African-American Vernacular and UK, dialectal) Alternative form of grasp.",
+    example: "",
+  }]);
+  assert.deepEqual(normalizeDefinition("A bracketed note [used in context]."), { definition: "A bracketed note [used in context]." });
 });
