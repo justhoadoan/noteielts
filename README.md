@@ -22,6 +22,8 @@ npm install
 npm run dev
 ```
 
+Chỉ đăng ký và mở ứng dụng qua `https://noteielts.vercel.app`. Domain `noteielts-justhoadoans-projects.vercel.app` là URL triển khai được Vercel bảo vệ và có thể yêu cầu đăng nhập Vercel. Nếu email xác nhận chứa `redirect_to` trỏ tới domain này, kiểm tra lại **Site URL** trong Supabase và mẫu **Authentication → Email Templates → Confirm signup**; liên kết xác nhận mặc định nên dùng `{{ .ConfirmationURL }}`. Sau khi sửa cấu hình, dùng **Gửi lại email xác nhận** để nhận liên kết mới. Liên kết đã gửi trước đó không tự đổi đích; nếu đã nhấn liên kết cũ, hãy thử đăng nhập ở domain chính vì tài khoản có thể đã được xác nhận trước khi Vercel chặn trang đích.
+
 Nếu dùng Gmail làm Custom SMTP và Supabase Auth log báo `535 5.7.8 Username and Password not accepted`, Gmail đã từ chối thông tin đăng nhập SMTP. Bật xác minh 2 bước trên tài khoản Google, tạo [App Password](https://support.google.com/accounts/answer/185833), rồi trong Supabase **Authentication → SMTP Settings** đặt host `smtp.gmail.com`, port `465` hoặc `587`, username là địa chỉ Gmail đầy đủ, sender email là cùng địa chỉ đó và password là App Password mới tạo (không dùng mật khẩu Gmail thông thường). [Hướng dẫn Gmail SMTP của Supabase](https://supabase.com/docs/guides/troubleshooting/using-google-smtp-with-supabase-custom-smtp-ZZzU4Y). Chỉ nhập App Password trong Supabase Dashboard; không lưu vào `.env.local` hay commit lên Git. Sau khi sửa, thử đăng ký lại; nếu tài khoản đã xuất hiện trong **Authentication → Users** nhưng chưa xác nhận, dùng nút **Gửi lại email xác nhận** trên trang đăng ký.
 
 Mở `http://localhost:3000`. Nếu chưa điền biến môi trường, ứng dụng hiển thị hướng dẫn kết nối thay vì cho lưu dữ liệu vào một nơi tạm.
